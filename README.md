@@ -8,9 +8,13 @@ This app turn the light off for those distraction.
 
 ## Screenshots
 
-| Home screen | All apps | Long-press app options |
-| --- | --- | --- |
-| <img src="docs/screenshots/home-screen.png" alt="Black UI home screen with a clock, favorite apps, and phone and camera shortcuts" width="240"> | <img src="docs/screenshots/all-apps.png" alt="Black UI app drawer with app search and the keyboard open" width="240"> | <img src="docs/screenshots/app-options.png" alt="Black UI long-press menu with favorite, rename, hide, app info, and uninstall actions" width="240"> |
+| Home screen | All apps |
+| --- | --- |
+| <img src="docs/screenshots/home-screen.png" alt="Black UI home screen with a clock, favorite apps, and phone and camera shortcuts" width="240"> | <img src="docs/screenshots/all-apps.png" alt="Black UI app drawer with app search and the keyboard open" width="240"> |
+
+| Long-press app options | Hidden apps |
+| --- | --- |
+| <img src="docs/screenshots/app-options.png" alt="Black UI long-press menu with favorite, rename, hide, app info, and uninstall actions" width="240"> | <img src="docs/screenshots/hidden-apps.png" alt="Black UI hidden-app list with search and the keyboard open" width="240"> |
 
 ## Features
 
