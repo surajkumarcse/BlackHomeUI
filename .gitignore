@@ -1,0 +1,31 @@
+# Local IDE and operating-system files
+.idea/
+*.iml
+.DS_Store
+
+# Gradle, Kotlin, and native build outputs
+.gradle/
+.kotlin/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Machine-specific SDK configuration
+local.properties
+
+# Packaged apps, including the local reference APK
+*.apk
+*.apks
+*.aab
+
+# Local credentials and release-signing material
+.env
+.env.*
+*.jks
+*.keystore
+*.pem
+*.p12
+*.pfx
+keystore.properties
+signing.properties

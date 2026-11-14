@@ -1,0 +1,34 @@
+LAUNCHER INTERACTIONS
+
+Swipe up on the home screen to open Android's web-search handler. If no search
+activity is available, the launcher attempts to open Google in a browser.
+Downward, horizontal, canceled, and short vertical drags do not request search.
+Horizontal swiping still moves between home and the app drawer.
+An "Open web search" accessibility action is also available on the home screen.
+
+Long-press an app in the drawer or a home favorite to open its action menu:
+- Add to home / remove from home.
+- Rename app; blank names cannot be saved. Restore original name removes the
+  launcher's local alias and does not change the installed application.
+- Hide / unhide. Hidden apps are excluded from home and the normal drawer;
+  use "Hidden apps" in the drawer header to manage and restore them.
+- App info opens Android's settings for the selected app/profile.
+- Uninstall opens Android's confirmation flow; it does not silently delete apps.
+
+Favorites, names, and hidden state are saved using profile-specific app IDs.
+Hiding a favorite preserves its favorite membership, so unhiding restores it
+to home. Returning from system settings or uninstall refreshes the app list.
+Work-profile policies can restrict app details, launching, and uninstall.
+Folders, app blocking, time reminders, and a custom search-app picker are not
+part of this change.
+
+VALIDATION
+
+Run local tests and build:
+  ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+
+Run UI/device tests on an explicitly selected test emulator:
+  ANDROID_SERIAL=emulator-5556 ./gradlew :app:connectedDebugAndroidTest
+
+Use JDK 17 to run Gradle. Do not select a personal device for automated tests
+unless you intend to install the debug app and instrumentation package there.

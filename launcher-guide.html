@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A source-based guide to this Android launcher's manifest, execution flow, and Kotlin entry point.">
+  <title>How this Android launcher works</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101319;
+      --panel: #191e27;
+      --line: #384153;
+      --text: #ecf0f7;
+      --muted: #b1bdd0;
+      --blue: #a6c8ff;
+      --green: #a1e5ce;
+      --amber: #f5d49a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--blue); text-underline-offset: 4px; }
+    a:hover { color: var(--text); }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--amber); outline-offset: 5px; }
+    .skip { position: absolute; top: -100px; left: 16px; padding: 10px; background: var(--panel); }
+    .skip:focus { top: 16px; }
+    header, main, footer { max-width: 1120px; margin: auto; padding: 32px 24px; }
+    header { padding-top: 64px; padding-bottom: 24px; }
+    .eyebrow { color: var(--green); text-transform: uppercase; letter-spacing: .13em; font-size: .78rem; font-weight: 700; }
+    h1 { font-size: clamp(2.1rem, 5vw, 3.8rem); line-height: 1.12; max-width: 850px; margin: 16px 0 24px; }
+    h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.25; margin-top: 0; }
+    h3 { line-height: 1.35; margin-top: 28px; }
+    p { margin: 12px 0; }
+    .intro { color: var(--muted); max-width: 800px; font-size: 1.1rem; }
+    nav { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+    nav a { border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; text-decoration: none; }
+    section { margin-bottom: 48px; padding: 30px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); }
+    .section-no { color: var(--blue); font-size: .8rem; letter-spacing: .1em; font-weight: 700; margin-bottom: 12px; }
+    .cards, .branches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { padding: 20px; border: 1px solid var(--line); border-radius: 12px; }
+    .card h3 { margin-top: 0; }
+    .note { border-left: 3px solid var(--amber); background: #24232a; padding: 14px 20px; margin: 22px 0; }
+    .answer { border-left: 3px solid var(--green); padding: 12px 20px; background: #1c2c2c; margin: 22px 0; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .89em; overflow-wrap: anywhere; color: #d6e7ff; }
+    pre { background: #0d1117; border: 1px solid var(--line); padding: 20px; border-radius: 12px; overflow-x: auto; line-height: 1.65; }
+    pre code { overflow-wrap: normal; font-size: .84rem; }
+    .muted, .source, figcaption { color: var(--muted); font-size: .9rem; }
+    .source { margin-top: 18px; }
+    sup { font-size: .75em; }
+    figure { margin: 24px 0; }
+    figcaption { margin-top: 16px; }
+    .flow { max-width: 700px; margin: auto; }
+    .node { border: 1px solid var(--line); border-radius: 12px; background: #121822; padding: 16px 20px; }
+    .node strong, .node code { display: block; }
+    .node p { margin: 6px 0 0; font-size: .92rem; color: var(--muted); }
+    .node.system { border-color: #7798c3; }
+    .node.state { border-color: #74bda8; }
+    .node.choice { border-color: #c2a16b; text-align: center; border-radius: 28px; }
+    .connector { width: 2px; height: 28px; background: #8094b0; margin: 0 auto; position: relative; }
+    .connector::after { content: ""; position: absolute; bottom: -1px; left: -5px; border: 6px solid transparent; border-top-color: #8094b0; border-bottom: 0; }
+    .branch { display: flex; flex-direction: column; }
+    .branch-label { text-align: center; font-size: .85rem; color: var(--amber); margin: 0 0 8px; font-weight: 600; }
+    .branch .node { flex: 1; }
+    .actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .flow-wide { max-width: none; }
+    .legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: .82rem; color: var(--muted); margin: 20px 0; }
+    .legend span { border-left: 3px solid #7798c3; padding-left: 8px; }
+    .legend .state-key { border-color: #74bda8; }
+    .legend .choice-key { border-color: #c2a16b; }
+    .table-wrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; padding: 14px 12px; }
+    th { color: var(--green); }
+    details { margin: 20px 0; }
+    summary { color: var(--blue); cursor: pointer; font-weight: 600; padding: 8px 0; }
+    li { margin-bottom: 8px; }
+    footer { color: var(--muted); padding-top: 0; }
+    footer h2 { font-size: 1.15rem; color: var(--text); }
+    .path { display: block; margin: 12px 0; }
+    @media (max-width: 700px) {
+      header, main, footer { padding-left: 16px; padding-right: 16px; }
+      header { padding-top: 40px; }
+      section { padding: 22px 16px; }
+      .cards, .branches, .actions { grid-template-columns: 1fr; }
+      .branches { gap: 24px; }
+      pre { padding: 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media print {
+      :root { color-scheme: light; --bg: #fff; --panel: #fff; --text: #111; --muted: #333; --line: #aaa; --blue: #174a80; --green: #145c45; --amber: #735000; }
+      header { padding-top: 0; }
+      nav, .skip { display: none; }
+      section { border-radius: 0; padding: 20px; }
+      pre, .node, .answer, .note { background: #f5f5f5; }
+      code { color: #174a80; }
+      .node, .card, tr { break-inside: avoid; }
+      a { color: #174a80; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to guide</a>
+  <header>
+    <div class="eyebrow">MyMinimalistDesignHomePage / Code walkthrough</div>
+    <h1>How this Android launcher works</h1>
+    <p class="intro">Three questions, answered from this project's actual manifest and Kotlin code. Learn how Android recognizes the home app, follow the runtime flow, and find the first activity callback to read.</p>
+    <div class="answer"><strong>The short version:</strong> <code>MAIN + HOME + DEFAULT</code> makes <code>MainActivity</code> eligible as a home screen. For a newly created activity, your UI setup begins in <code>MainActivity.onCreate()</code>, which installs a Compose UI rooted at <code>MinimalLauncher()</code>.</div>
+    <nav aria-label="Guide sections">
+      <a href="#identity">1. Why it is a launcher</a>
+      <a href="#flow">2. How it works</a>
+      <a href="#entry">3. Where execution starts</a>
+    </nav>
+  </header>
+  <main id="content">
+    <section id="identity" aria-labelledby="identity-title">
+      <div class="section-no">QUESTION 01</div>
+      <h2 id="identity-title">How is it identified as a UI launcher?</h2>
+      <p>Android does not decide this from the project name, the black background, or the appearance of the UI. It matches the activity's <strong>intent filters</strong> in <code>AndroidManifest.xml</code> against the action it needs to perform.<sup><a href="#ref-intents">[1]</a></sup></p>
+      <div class="cards">
+        <article class="card">
+          <h3>Home-screen eligibility</h3>
+          <p>This is the filter that makes the activity a home-app candidate:</p>
+          <pre><code>&lt;intent-filter&gt;
+    &lt;action android:name="android.intent.action.MAIN" /&gt;
+    &lt;category android:name="android.intent.category.HOME" /&gt;
+    &lt;category android:name="android.intent.category.DEFAULT" /&gt;
+&lt;/intent-filter&gt;</code></pre>
+          <p><code>MAIN</code> is the main entry action; <code>HOME</code> identifies a home-screen handler; <code>DEFAULT</code> allows matching for normal implicit activity launches. It does <strong>not</strong> mean this app has already been chosen as the device's default.<sup><a href="#ref-intent-api">[2]</a></sup></p>
+        </article>
+        <article class="card">
+          <h3>Ordinary app-drawer entry</h3>
+          <p>A separate filter lets the app appear in an existing launcher's app list:</p>
+          <pre><code>&lt;intent-filter&gt;
+    &lt;action android:name="android.intent.action.MAIN" /&gt;
+    &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+&lt;/intent-filter&gt;</code></pre>
+          <p><code>LAUNCHER</code> means "show this activity as an app that can be opened." Many ordinary apps have this filter. It does <strong>not</strong> by itself make an app a replacement home screen.<sup><a href="#ref-intent-api">[2]</a></sup></p>
+        </article>
+      </div>
+      <div class="note"><strong>Eligible is not the same as selected.</strong> The manifest declares a home-app candidate. Android's default-home selection determines which candidate handles Home. This code does not automatically replace your existing default launcher.<sup><a href="#ref-home">[3]</a></sup></div>
+      <p>Both filters are inside the same activity declaration:</p>
+      <pre><code>&lt;activity
+    android:name=".MainActivity"
+    android:exported="true"
+    ... &gt;</code></pre>
+      <p>In this project, <code>.MainActivity</code> refers to <code>com.lostfalcon.myminimalistdesignhomepage.MainActivity</code>. <code>exported="true"</code> permits external launch requests; it is not the home-screen identifier. The filters determine which intents the activity advertises handling.<sup><a href="#ref-intents">[1]</a></sup></p>
+      <div class="note"><strong>Do not confuse the two uses of LAUNCHER in this manifest.</strong> The <code>MAIN + LAUNCHER</code> signature under <code>&lt;queries&gt;</code> describes other apps this app wants visibility into. Only the filters inside <code>&lt;activity&gt;</code> advertise this activity's entry points.<sup><a href="#ref-queries">[4]</a></sup></div>
+      <h3>What actually supplies the launcher UI?</h3>
+      <p><code>MinimalLauncher()</code> builds a two-page <code>HorizontalPager</code>: <code>HomeScreen()</code> for the clock, favorites, phone, and camera; <code>AppsScreen()</code> for the searchable app drawer. <code>loadLaunchableApps()</code> uses Android's <code>LauncherApps</code> service to enumerate launchable activities in available profiles.<sup><a href="#ref-launcherapps">[5]</a></sup></p>
+      <p class="source">Project evidence: <a href="app/src/main/AndroidManifest.xml">AndroidManifest.xml</a> (queries: lines 7-10; activity and entry filters: lines 38-54), <a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/MainActivity.kt">MainActivity.kt</a> (<code>MinimalLauncher</code>, <code>loadLaunchableApps</code>), and <a href="app/build.gradle.kts">app/build.gradle.kts</a> (namespace).</p>
+    </section>
+
+    <section id="flow" aria-labelledby="flow-title">
+      <div class="section-no">QUESTION 02</div>
+      <h2 id="flow-title">Flowcharts: startup, actions, and refresh</h2>
+      <p>These diagrams are conceptual control/data flows, not a guarantee that Compose renders every function exactly once or in a strict screen-by-screen order. Compose can re-run affected UI functions as state changes.<sup><a href="#ref-compose">[6]</a></sup></p>
+      <div class="legend" aria-label="Flowchart legend">
+        <span>Blue border: Android or entry point</span>
+        <span class="state-key">Green border: launcher state</span>
+        <span class="choice-key">Amber border: branch or user action</span>
+      </div>
+      <h3>A. Creating the activity and building the UI</h3>
+      <figure aria-labelledby="startup-caption">
+        <div class="flow">
+          <div class="node system"><strong>Android receives a launch request</strong><p>Open this app's icon, or handle Home when this app is selected as the home handler.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node system"><strong>Android resolves the activity</strong><code>MainActivity</code><p>For a new instance, the framework creates the activity and calls its lifecycle callback.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node system"><strong>Initialize the activity</strong><code>onCreate() &gt; super.onCreate() &gt; enableEdgeToEdge()</code></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node"><strong>Install the Compose UI</strong><code>setContent { MyMinimalistDesignHomePageTheme { MinimalLauncher() } }</code><p>The theme supplies the dark Material color scheme and typography.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node state"><strong>Read installed apps and saved preferences</strong><code>loadLaunchableApps() + LauncherPreferences</code><p>Load available profiles and their activities; exclude this app; deduplicate by profile/package ID; sort labels. Read favorites, hidden IDs, and local name overrides.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node state"><strong>Derive the visible data</strong><code>applyAppLabels() + favoriteApps</code><p>Apply aliases and sort again. Home favorites must be both favorited and not hidden. On the first preference initialization, defaults come from matching the preferred app-name list.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node"><strong>Register lifecycle refresh and build the pager</strong><code>DisposableEffect() + HorizontalPager(pageCount = 2)</code><p>The observer reloads launcher data on ON_RESUME. The pager starts on page 0; horizontal swiping changes the active page.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node choice"><strong>Which page is selected?</strong></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="branches">
+            <div class="branch"><p class="branch-label">Page 0 / initial page</p><div class="node"><strong>HomeScreen()</strong><p>Clock and date, visible favorites, PHONE and CAMERA actions. An upward drag or accessibility action requests web search.</p></div></div>
+            <div class="branch"><p class="branch-label">Page 1 / app drawer</p><div class="node"><strong>AppsScreen()</strong><p>Normal or hidden-app list, search field, HOME badges. The settled active drawer requests search focus and the keyboard.</p></div></div>
+          </div>
+        </div>
+        <figcaption id="startup-caption">Cold/new-activity path. Reopening an existing activity may resume it instead of creating it again. The ON_RESUME observer is a separate lifecycle path, shown below.<sup><a href="#ref-lifecycle">[7]</a></sup></figcaption>
+      </figure>
+
+      <h3>B. What happens after a user action?</h3>
+      <figure aria-labelledby="actions-caption">
+        <div class="flow flow-wide">
+          <div class="node choice"><strong>User interacts with HomeScreen or AppsScreen</strong></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="branches actions">
+            <div class="branch">
+              <p class="branch-label">Tap an app</p>
+              <div class="node"><strong>launchApp(context, app)</strong><p>For the loaded profile/component, call <code>LauncherApps.startMainActivity()</code>. If those fields are absent, fall back to a package launch intent. An unavailable or blocked launch shows a toast.</p></div>
+              <div class="connector" aria-hidden="true"></div>
+              <div class="node system"><strong>Android opens the selected app</strong><p>The launcher delegates to the operating system; it does not draw that app's UI.</p></div>
+            </div>
+            <div class="branch">
+              <p class="branch-label">Long-press an app</p>
+              <div class="node state"><strong>Set selectedAppId</strong><p>State makes <code>AppActionsDialog()</code> appear. Actions: add/remove home, rename, hide/unhide, app info, or uninstall.</p></div>
+              <div class="connector" aria-hidden="true"></div>
+              <div class="node"><strong>Persist a local change OR ask Android</strong><p>Favorites, aliases, and hiding update preferences and UI state. App info opens settings. Uninstall sends an <code>ACTION_DELETE</code> intent; Android handles confirmation and policy restrictions.</p></div>
+            </div>
+            <div class="branch">
+              <p class="branch-label">Search, gestures, shortcuts</p>
+              <div class="node state"><strong>Drawer search is local filtering</strong><p><code>query</code> changes; <code>filterApps()</code> matches labels ignoring case. The hidden-app toggle switches which group is searched.</p></div>
+              <div class="connector" aria-hidden="true"></div>
+              <div class="node system"><strong>Home shortcuts request another activity</strong><p>Upward swipe: <code>ACTION_WEB_SEARCH</code>, then browser fallback if needed. PHONE: <code>ACTION_DIAL</code>. CAMERA: <code>INTENT_ACTION_STILL_IMAGE_CAMERA</code>.</p></div>
+            </div>
+          </div>
+        </div>
+        <figcaption id="actions-caption">Branches are alternatives, not steps performed together. Local state changes cause affected Compose UI to update; external actions leave the launcher and are handled by Android.</figcaption>
+      </figure>
+      <div class="note"><strong>Two different searches:</strong> typing in the drawer searches installed-app labels. Swiping up on Home requests an external web-search handler, with a browser fallback. These are separate code paths.</div>
+
+      <h3>C. Returning from another app or system settings</h3>
+      <figure aria-labelledby="resume-caption">
+        <div class="flow">
+          <div class="node system"><strong>Activity reaches ON_RESUME</strong><p>For example, you return from app info or an uninstall confirmation flow.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node state"><strong>LifecycleEventObserver reloads data</strong><p>Refresh installed apps, favorites, hidden IDs, and aliases. Clear selected/rename IDs if their app no longer exists in the loaded list.</p></div>
+          <div class="connector" aria-hidden="true"></div>
+          <div class="node"><strong>Compose reflects the refreshed state</strong><p>Recompute displayed apps and visible favorites, then update the affected UI.</p></div>
+        </div>
+        <figcaption id="resume-caption">The observer is attached with DisposableEffect and removed when that effect is disposed. This implementation refreshes on resume; it does not register LauncherApps package-change callbacks.</figcaption>
+      </figure>
+      <p class="source">Project evidence: <a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/MainActivity.kt">MainActivity.kt</a> (startup/state: lines 94-215; home gestures and clock: lines 218-309; drawer: lines 345-494; dialogs and platform helpers: lines 497-697) and <a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/LauncherPreferences.kt">LauncherPreferences.kt</a> (persistent state and aliases).</p>
+    </section>
+
+    <section id="entry" aria-labelledby="entry-title">
+      <div class="section-no">QUESTION 03</div>
+      <h2 id="entry-title">What code is executed first here?</h2>
+      <div class="answer"><strong>Start reading at <code>MainActivity.onCreate()</code>.</strong> It is the first lifecycle callback overridden by this project's activity, and the entry point for its UI setup on a new activity instance. The override begins at line 95.</div>
+      <a class="path" href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/MainActivity.kt"><code>app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/MainActivity.kt</code></a>
+      <pre><code>class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            MyMinimalistDesignHomePageTheme {
+                MinimalLauncher()
+            }
+        }
+    }
+}</code></pre>
+      <div class="table-wrap">
+        <table>
+          <caption class="muted">Read this call chain from top to bottom for the activity's UI initialization.</caption>
+          <thead><tr><th scope="col">Order</th><th scope="col">Code</th><th scope="col">Purpose here</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>onCreate(savedInstanceState)</code></td><td>Android invokes the callback for a newly created MainActivity.</td></tr>
+            <tr><td>2</td><td><code>super.onCreate(savedInstanceState)</code></td><td>The first statement in this override delegates to ComponentActivity's initialization.</td></tr>
+            <tr><td>3</td><td><code>enableEdgeToEdge()</code></td><td>Configures edge-to-edge drawing; the screens use system-bar padding for their content.</td></tr>
+            <tr><td>4</td><td><code>setContent { ... }</code></td><td>Installs the Compose content rather than inflating an XML layout.</td></tr>
+            <tr><td>5</td><td><code>MyMinimalistDesignHomePageTheme</code></td><td>Wraps the content in MaterialTheme with this project's dark colors and typography.</td></tr>
+            <tr><td>6</td><td><code>MinimalLauncher()</code></td><td>Owns launcher state, preferences, lifecycle refresh, pager, and dialogs.</td></tr>
+            <tr><td>7</td><td><code>HomeScreen() / AppsScreen()</code></td><td>Describe the UI for pager pages; Compose renders and updates them as needed.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><strong>Important precision: onCreate is not the literal first code in the process.</strong> Android framework startup, dependency initializers/providers, Application initialization, and activity construction can occur before this callback. This source manifest declares no custom Application class. There is no app-authored <code>main()</code> function that you call to launch this UI. On returning to an existing activity, <code>onCreate()</code> need not run again.<sup><a href="#ref-lifecycle">[7]</a></sup></div>
+      <details>
+        <summary>Which files should I read next?</summary>
+        <ol>
+          <li><a href="app/src/main/AndroidManifest.xml">AndroidManifest.xml</a>: understand how Android can enter MainActivity.</li>
+          <li><a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/MainActivity.kt">MainActivity.kt</a>: read <code>onCreate</code>, then <code>MinimalLauncher</code>, then the page composables and platform helpers.</li>
+          <li><a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/LauncherPreferences.kt">LauncherPreferences.kt</a>: see how favorites, hidden apps, and aliases survive activity/process recreation.</li>
+          <li><a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/ui/theme/Theme.kt">ui/theme/Theme.kt</a>: see the theme that wraps the UI.</li>
+        </ol>
+      </details>
+      <p class="source">Project evidence: <a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/MainActivity.kt">MainActivity.kt:94-112</a>, <a href="app/src/main/java/com/lostfalcon/myminimalistdesignhomepage/ui/theme/Theme.kt">Theme.kt:18-27</a>, and the application declaration in <a href="app/src/main/AndroidManifest.xml">AndroidManifest.xml</a>. A filename link opens the local source file; line numbers are reading hints, not browser deep links.</p>
+    </section>
+  </main>
+  <footer aria-labelledby="references-title">
+    <h2 id="references-title">Sources and scope</h2>
+    <p>Project walkthrough checked against the local source on November 14, 2026. Source file links are relative to this page in the project root. The guide and diagrams work offline without JavaScript, fonts, or CDN libraries; opening the official references below requires internet access.</p>
+    <ol>
+      <li id="ref-intents"><a href="https://developer.android.com/guide/components/intents-filters">Android Developers: Intents and intent filters</a> - component entry and intent matching.</li>
+      <li id="ref-intent-api"><a href="https://developer.android.com/reference/android/content/Intent">Android Developers: Intent API reference</a> - MAIN, HOME, LAUNCHER, and DEFAULT meanings.</li>
+      <li id="ref-home"><a href="https://developer.android.com/work/dpc/dedicated-devices/cookbook#custom-home-apps">Android Developers: Custom Home apps</a> - home-app identification and default-handler distinction. The device-policy setup in this reference is not implemented by this project.</li>
+      <li id="ref-queries"><a href="https://developer.android.com/guide/topics/manifest/queries-element">Android Developers: The queries element</a> - visibility into other apps.</li>
+      <li id="ref-launcherapps"><a href="https://developer.android.com/reference/android/content/pm/LauncherApps">Android Developers: LauncherApps</a> - profile-aware app enumeration and launching.</li>
+      <li id="ref-compose"><a href="https://developer.android.com/develop/ui/compose/mental-model">Android Developers: Thinking in Compose</a> - declarative UI and recomposition.</li>
+      <li id="ref-lifecycle"><a href="https://developer.android.com/guide/components/activities/activity-lifecycle">Android Developers: The activity lifecycle</a> - activity creation and resume callbacks.</li>
+    </ol>
+    <p>This page documents the current Android app; it does not change launcher selection, app behavior, or your GitHub repository.</p>
+  </footer>
+</body>
+</html>
